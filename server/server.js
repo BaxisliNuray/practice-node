@@ -1,91 +1,107 @@
-const express = require('express')
-const bodyParser = require("body-parser");
+const express = require("express");
+const app = express();
 const cors = require("cors");
-const uuid = require("uuid")
-const app = express()
-const PORT = 8080
+const mongoose = require('mongoose');
 
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
 app.use(cors());
+const bodyParser = require("body-parser"); app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+const dotenv = require('dotenv');
+dotenv.config();
 
 
 
-// CRUD
 
-const studentsRoute = require('./routes/student.routes');
-app.use('/students', studentsRoute)
+// MONGO DB CONNECTION
+DB_CONNECTION = process.env.DB_CONNECTION
+DB_PASSWORD = process.env.DB_PASSWORD
+mongoose.connect(DB_CONNECTION.replace("<password>", DB_PASSWORD))
+    .then(() => console.log("Mongo DB Connected!"))
+console.log(DB_CONNECTION.replace("<password>", DB_PASSWORD));
+
+
+
+// get Student Scheme
+const StudentSchema = mongoose.Schema({
+    name: String,
+    surname: String,
+    birthdate: String,
+    faculty: String,
+    GPA: Number,
+    isMarried: Boolean
+
+})
+
+// tudent Module
+const StudentModel = mongoose.model('Students', StudentSchema)
+
+
+
+
+
 
 // get all students
-app.get("/studens", (req, res) => {
-
-    if (students.length === 0) {
-        res.status(204).send("no content");
-        return;
+app.get("/students", async (req, res) => {
+    const { name } = req.query;
+    const students = await StudentModel.find();
+    if (name === undefined) {
+        res.status(404).send("404 error");
     } else {
-        res.status(200).send(students);
-        return;
+        res.status(200).send({
+            data: students.filter((x) => x.name.toLowerCase().trim().includes(name.toLowerCase().trim())),
+            message: "data get ",
+        });
     }
 });
-
-//get student by id
-app.get("/students/:id", (req, res) => {
-  const id = req.params.id;
-  const singleData = students.find((data) => data.id === parseInt(id));
-
-  if (singleData === undefined) {
-    res.status(204).send("data not found ");
-    return;
-  } else {
-    res.status(200).send(singleData);
-    return;
-  }
-});
-
-
-//delete student by id
-app.delete("/students/:id", (req, res) => {
+// get  student by id\
+app.get("/students/:id", async (req, res) => {
     const id = req.params.id;
-    const data = students.find((data) => data.id === parseInt(id));
-    if (data === undefined) {
-        res.status(404).send("no such student found!");
-        return;
+    const student = await StudentModel.findById(id);
+    console.log('artist found: ', artist);
+    if (!student) {
+        res.status(204).send("student not found!");
     } else {
-        const idx = students.indexOf(data);
-        students.splice(idx, 1);
-        res.status(202).send("students deleted");
+        res.status(200).send({
+            data: student,
+            message: "data get success!",
+        });
     }
 });
 
-//post student
-app.post("/students", bodyParser.json(), (req, res) => {
-    const newStudent = {
-        id:uuid.v4(),
-        name: req.body.name,
-        price: req.body.price
+
+
+//   delete student by id
+
+app.delete("/students/:id", async (req, res) => {
+    const id = req.params.id;
+    const student = await StudentModel.findByIdAndDelete(id);
+    if (student === undefined) {
+        res.status(404).send("student not found");
+    } else {
+        const idx = student.indexOf(student);
+        student.splice(idx, 1);
+        res.status(203).send({
+            data: student,
+            message: "student deleted successfully",
+        });
     }
-    students.push(newStudent);
-    res.status(201).send("student posted ");
 });
 
-//put student
-app.put("/students/:id", (req, res) => {
-    const { id } = req.params;
-    const { name } = req.body;
-    let student = students.find((x) => x.id == id);
-    if (!student) return res.status(204).send();
-    if (!name) {
-        return res.status(400).send({ message: 'name is required!' })
-    }
-    if (name) {
-        student.name = name;
-    }
-
-    res.send(200).send("student updated ");
-}
-)
-
-
+//post students
+app.post("/students", async (req, res) => {
+    const { name, surname, birthdate, faculty, GPA, isMarried } = req.body;
+    const newStudent = new StudentModel({
+        name: name,
+        surname: surname,
+        birthdate: birthdate,
+        faculty: faculty,
+        GPA: GPA,
+        isMarried: isMarried
+    })
+    await newStudent.save();
+    res.status(201).send("created");
+});
+PORT = process.env.PORT;
 app.listen(PORT, () => {
     console.log(`Example app listening on port ${PORT}`)
 })
